@@ -1,6 +1,10 @@
 import json
 from typing import Any, Callable, Dict, List, Optional
 
+import openai
+from openai.types.chat.chat_completion import ChatCompletion
+
+
 from openai_functools.function_spec import FunctionSpec
 from openai_functools.metadata_generator import (
     construct_function_name, extract_openai_function_metadata)
@@ -131,21 +135,21 @@ class FunctionsOrchestrator:
 
         return wrapper
 
-    def call_function(self, openai_response: dict) -> dict:
+    def call_function(self, openai_response: ChatCompletion) -> dict:
         """
         Calls a function based on the OpenAI response.
 
         Args:
-            openai_response (dict): The OpenAI response containing the function call information.
+            openai_response (ChatCompletion): The OpenAI response containing the function call information.
 
         Returns:
             dict: The responses from the called function.
         """
-        response_message = openai_response["choices"][0]["message"]
+        response_message = openai_response.choices[0].message
 
-        if function_call := response_message.get("function_call"):
-            function_name = function_call["name"]
-            function_args = json.loads(function_call["arguments"])
+        if function_call := response_message.function_call:
+            function_name = function_call.name
+            function_args = json.loads(function_call.arguments)
             function = self._functions[function_name]
 
             if function is None:
