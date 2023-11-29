@@ -7,7 +7,9 @@ from openai.types.chat.chat_completion import ChatCompletion
 
 from openai_functools.function_spec import FunctionSpec
 from openai_functools.metadata_generator import (
-    construct_function_name, extract_openai_function_metadata)
+    construct_function_name,
+    extract_openai_function_metadata,
+)
 
 
 class FunctionsOrchestrator:
@@ -157,8 +159,15 @@ class FunctionsOrchestrator:
                     f'Function "{function_name}" is not '
                     f"registered with the orchestrator."
                 )
-
             return function.func_ref(**function_args)
+        elif tool_calls := response_message.get("tool_calls"):
+            function_responses = {}
+            for tool_call in tool_calls:
+                function_name = tool_call.function.name
+                function_args = json.loads(tool_call.function.arguments)
+                function = self._functions[function_name]
+                function_responses[tool_call.id] = function.func_ref(**function_args)
+            return function_responses
         else:
             raise ValueError(
                 f'Function call information not found in response message "{response_message}".'
@@ -207,7 +216,7 @@ class FunctionsOrchestrator:
         self, selected_functions: Optional[List[str]] = None
     ) -> List[Dict[str, Any]]:
         """
-        Creates descriptions for the selected functions.
+        Creates descriptions for the selected functions. This should be used when calling ChatCompletion.create with the functions argument.
 
         Args:
             selected_functions (Optional[List[str]]): The list of selected function names. If None, descriptions for all registered functions are created.
@@ -225,3 +234,26 @@ class FunctionsOrchestrator:
             ]
         )
         return [spec.parameters for spec in specs]
+
+    def create_tools_descriptions(
+        self, selected_functions: Optional[List[str]] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Creates descriptions for the selected functions. This should be used when calling ChatCompletion.create with the tools argument.
+
+        Args:
+            selected_functions (Optional[List[str]]): The list of selected function names. If None, descriptions for all registered functions are created.
+
+        Returns:
+            List[Dict[str, Any]]: The list of created tool descriptions.
+        """
+        specs = (
+            self._functions.values()
+            if selected_functions is None
+            else [
+                spec
+                for spec in self._functions.values()
+                if spec.name in selected_functions
+            ]
+        )
+        return [{"type": "function", "function": spec.parameters} for spec in specs]
