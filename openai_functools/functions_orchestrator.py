@@ -160,7 +160,7 @@ class FunctionsOrchestrator:
                     f"registered with the orchestrator."
                 )
             return function.func_ref(**function_args)
-        elif tool_calls := response_message.get("tool_calls"):
+        elif tool_calls := response_message.tool_calls:
             function_responses = {}
             for tool_call in tool_calls:
                 function_name = tool_call.function.name
